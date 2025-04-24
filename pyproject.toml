@@ -1,0 +1,12 @@
+[project]
+name = "nanodt"
+version = "0.1.0"
+description = "nanoDT: Simple, yet effective Decision Transformer implementation"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "gymnasium>=1.1.1",
+    "minari[hdf5]>=0.5.3",
+    "numpy>=2.2.5",
+    "torch>=2.7.0",
+]

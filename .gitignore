@@ -1,0 +1,11 @@
+.venv/
+logs/
+output/
+.vscode/
+.DS_Store
+notebooks/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
