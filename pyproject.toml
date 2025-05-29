@@ -1,12 +1,34 @@
 [project]
 name = "nanodt"
 version = "0.1.0"
-description = "nanoDT: Simple, yet effective Decision Transformer implementation"
+description = "A minimal Decision Transformer implementation for Minari datasets."
 readme = "README.md"
+authors = [
+    { name = "Paweł Gajewski", email = "lubiluk@gmail.com" }
+]
+license = { file = "LICENSE" }
 requires-python = ">=3.12"
 dependencies = [
     "gymnasium>=1.1.1",
     "minari[hdf5]>=0.5.3",
     "numpy>=2.2.5",
+    "pillow>=11.2.1",
     "torch>=2.7.0",
 ]
+[project.urls]
+Homepage = "https://github.com/lubiluk/nanoDTm"
+Repository = "https://github.com/lubiluk/nanoDT"
+Issues = "https://github.com/lubiluk/nanoDT/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+exclude = [
+    "notebooks/*",
+    "tests/*",
+    "logs/*",
+    "output/*"
+]
+

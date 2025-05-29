@@ -29,7 +29,7 @@ def collect_dataset(env_name: str, expert_path: str, n_timesteps: int, seed: int
         dataset_id=f"{env_name}-expert-v0",
         algorithm_name="ExpertPolicy",
         # code_permalink="https://minari.farama.org/tutorials/behavioral_cloning",
-        author="Paul Gajewski",
+        author="Paweł Gajewski",
         # author_email="lubiluk@gmail.com.org",
     )
 

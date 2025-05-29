@@ -4,6 +4,7 @@ output/
 .vscode/
 .DS_Store
 notebooks/
+dist/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
