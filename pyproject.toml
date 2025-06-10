@@ -12,6 +12,7 @@ dependencies = [
     "gymnasium>=1.1.1",
     "minari[hdf5]>=0.5.3",
     "numpy>=2.2.5",
+    "optuna>=4.3.0",
     "pillow>=11.2.1",
     "torch>=2.7.0",
 ]
