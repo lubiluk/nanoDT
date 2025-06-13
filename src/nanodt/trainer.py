@@ -139,9 +139,10 @@ class DecisionTransformerTrainerConfig:
 
 class DecisionTransformerTrainer:
     def __init__(self, model, dataset, config):
-        self.model = model
+        self.model: torch.nn.Module = model
         self.dataset = dataset
-        self.config = config
+        self.config: DecisionTransformerTrainerConfig = config
+        self.dataset_stats_ = None
 
     def train(self):
         # Get stats from the dataset
@@ -376,18 +377,18 @@ class DecisionTransformerTrainer:
     # learning rate decay scheduler (cosine with warmup)
     def get_lr(self, it):
         # 1) linear warmup for warmup_iters steps
-        if it < self.warmup_iters:
-            return self.learning_rate * it / self.warmup_iters
+        if it < self.config.warmup_iters:
+            return self.config.learning_rate * it / self.config.warmup_iters
         # 2) if it > lr_decay_iters, return min learning rate
-        if it > self.lr_decay_iters:
-            return self.min_lr
+        if it > self.config.lr_decay_iters:
+            return self.config.min_lr
         # 3) in between, use cosine decay down to min learning rate
-        decay_ratio = (it - self.warmup_iters) / (
-            self.lr_decay_iters - self.warmup_iters
+        decay_ratio = (it - self.config.warmup_iters) / (
+            self.config.lr_decay_iters - self.config.warmup_iters
         )
         assert 0 <= decay_ratio <= 1
         coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))  # coeff ranges 0..1
-        return self.min_lr + coeff * (self.learning_rate - self.min_lr)
+        return self.config.min_lr + coeff * (self.config.learning_rate - self.config.min_lr)
 
     def estimate_mfu(self, fwdbwd_per_iter, dt):
         """estimate model flops utilization (MFU) in units of A100 bfloat16 peak FLOPS"""

@@ -114,6 +114,9 @@ class NanoDTAgent:
         agent.state_std_ = checkpoint.get("state_std", None)
         agent.reward_scale_ = checkpoint.get("reward_scale", None)
 
+        agent.model.to(device)
+        agent.device = device
+
         return agent
 
     def reset(self, target_return):
@@ -141,8 +144,8 @@ class NanoDTAgent:
         act_dim = self.model_config.act_dim
         state_dim = self.model_config.state_dim
         max_len = self.model_config.K
-        state_mean = torch.tensor(self.state_mean_, dtype=torch.float32)
-        state_std = torch.tensor(self.state_std_, dtype=torch.float32)
+        state_mean = torch.tensor(self.state_mean_, dtype=torch.float32).to(device)
+        state_std = torch.tensor(self.state_std_, dtype=torch.float32).to(device)
         target_return = self._target_return
         scale = self.reward_scale_
         # Update state from the last step
