@@ -20,4 +20,4 @@ This repository is based on [nanoGPT](https://github.com/karpathy/nanoGPT) and p
 ```bash
 pip install nanodt
 ```
-More details at [PyPI: nanodt](https://www.piwheels.org/project/nanodt)
+More details at [PyPI: nanodt](https://pypi.org/project/nanodt/)
