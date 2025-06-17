@@ -9,9 +9,10 @@ References:
 
 import math
 import inspect
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import random
 import time
+from typing import List, Protocol, TypedDict, Dict, Any
 
 from minari import MinariDataset
 import numpy as np
@@ -112,6 +113,59 @@ class DecisionTransformerDataCollator:
         return discount_cumsum
 
 
+class EvaluationLogs(TypedDict):
+    """The exact structure of logs passed to on_evaluate."""
+    train_loss: float
+    val_loss: float
+
+
+class TrainingLogs(TypedDict):
+    """The exact structure of logs passed to on_log."""
+    loss: float
+    time_ms: float
+    mfu: float  # Model Flops Utilization
+
+
+class Callback(Protocol):
+    """
+    Protocol for callbacks that can be hooked into the training loop.
+    Allows for custom logic like logging, progress bars, etc.
+    """
+
+    def on_train_begin(self, config: "DecisionTransformerTrainerConfig"):
+        """Called at the beginning of the training."""
+        ...
+
+    def on_train_end(self):
+        """Called at the end of the training."""
+        ...
+
+    def on_evaluate(self, logs: EvaluationLogs, step: int):
+        """Called after the evaluation phase with structured logs."""
+        ...
+
+    def on_log(self, logs: TrainingLogs, step: int):
+        """Called at each logging interval with structured training metrics."""
+        ...
+
+
+class DefaultLoggingCallback(Callback):
+    """Prints training and evaluation metrics to the console."""
+
+    def on_train_begin(self, config: "DecisionTransformerTrainerConfig"):
+        print("Starting training...")
+
+    def on_train_end(self):
+        print("Training finished.")
+
+    def on_evaluate(self, logs: EvaluationLogs, step: int):
+        print(f"step {step}: train loss {logs['train_loss']:.4f}, val loss {logs['val_loss']:.4f}")
+
+    def on_log(self, logs: TrainingLogs, step: int):
+        mfu = logs['mfu'] * 100
+        print(f"iter {step}: loss {logs['loss']:.4f}, time {logs['time_ms']:.2f}ms, mfu {mfu:.2f}%")
+
+
 @dataclass
 class DecisionTransformerTrainerConfig:
     batch_size: int = 64
@@ -135,6 +189,7 @@ class DecisionTransformerTrainerConfig:
     eval_interval: int = 1000
     eval_iters: int = 100
     log_interval: int = 100
+    callback: Callback | None = field(default_factory=DefaultLoggingCallback)
 
 
 class DecisionTransformerTrainer:
@@ -214,6 +269,9 @@ class DecisionTransformerTrainer:
 
         self.model.to(self.config.device)
 
+        if self.config.callback:
+            self.config.callback.on_train_begin(self.config)
+
         # training loop
         states, actions, rewards, rtgs, tsteps, mask = next(
             dataloader_iter
@@ -235,9 +293,12 @@ class DecisionTransformerTrainer:
             # evaluate the loss on train/val sets and write checkpoints
             if iter_num % self.config.eval_interval == 0:
                 losses = self.estimate_loss(dataloader_iter)
-                print(
-                    f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}"
-                )
+                eval_logs: EvaluationLogs = {
+                    "train_loss": losses["train"],
+                    "val_loss": losses["val"],
+                }
+                if self.config.callback:
+                    self.config.callback.on_evaluate(logs=eval_logs, step=iter_num)
                 # if losses["val"] < best_val_loss or self.config.always_save_checkpoint:
                 #     best_val_loss = losses["val"]
                 #     if iter_num > 0:
@@ -306,15 +367,24 @@ class DecisionTransformerTrainer:
                     running_mfu = (
                         mfu if running_mfu == -1.0 else 0.9 * running_mfu + 0.1 * mfu
                     )
-                print(
-                    f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%"
-                )
+
+                log_data: TrainingLogs = {
+                    "loss": lossf,
+                    "time_ms": dt * 1000,
+                    "mfu": running_mfu,
+                }
+                if self.config.callback:
+                    self.config.callback.on_log(logs=log_data, step=iter_num)
+
             iter_num += 1
             local_iter_num += 1
 
             # termination conditions
             if iter_num > self.config.max_iters:
                 break
+
+        if self.config.callback:
+            self.config.callback.on_train_end()
 
     def configure_optimizers(self, weight_decay, learning_rate, betas, device_type):
         # start with all of the candidate parameters
