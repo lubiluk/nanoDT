@@ -3,7 +3,7 @@ import torch
 import gymnasium.spaces as spaces
 
 from nanodt.model import DecisionTransformer, DecisionTransformerConfig
-from nanodt.trainer import DecisionTransformerTrainer, DecisionTransformerTrainerConfig
+from nanodt.trainer import DecisionTransformerTrainer, DecisionTransformerTrainerConfig, DefaultLoggingCallback
 
 
 class NanoDTAgent:
@@ -62,6 +62,9 @@ class NanoDTAgent:
         if not path.endswith(".pth"):
             path += ".pth"
 
+        # Remove the callbacks before saving
+        self.trainer_config.callback = None
+
         torch.save(
             {
                 "model_state_dict": self.model.to("cpu").state_dict(),
@@ -85,6 +88,7 @@ class NanoDTAgent:
 
         # Extract the saved model configuration
         model_config = checkpoint["model_config"]
+        model_config.callback = DefaultLoggingCallback() # Add default logging callback
 
         # Reconstruct the agent object
         agent = cls(
