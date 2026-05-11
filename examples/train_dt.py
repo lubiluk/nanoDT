@@ -1,6 +1,8 @@
+import os
+
 import minari
 import torch
-import os
+
 from nanodt.agent import NanoDTAgent
 from nanodt.utils import seed_libraries
 
@@ -18,7 +20,7 @@ def train_dt():
     seed = 1234
     seed_libraries(seed)
 
-    dataset_name = "Ant-v4-expert-v0"
+    dataset_name = "mujoco/ant/expert-v0"
     save_path = f"output/dt/minari-{dataset_name}.pth"
 
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -27,7 +29,6 @@ def train_dt():
 
     device = get_device()
     print(f"Using device: {device}")
-
 
     dt_agent = NanoDTAgent(device=device)
     dt_agent.learn(minari_dataset, reward_scale=1000.0)
