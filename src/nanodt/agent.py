@@ -44,10 +44,16 @@ class NanoDTAgent:
     def learn(self, dataset: MinariDataset, **kwargs):
         # Automatically infer the state_dim and act_dim from the arguments
         self.model_config.state_dim = dataset.observation_space.shape[0]
-        self.model_config.act_dim = dataset.action_space.shape[0]
-        self.model_config.act_discrete = isinstance(
-            dataset.action_space, spaces.Discrete
-        )
+
+        if isinstance(dataset.action_space, spaces.Discrete):
+            self.model_config.act_discrete = True
+            self.model_config.act_dim = 1
+            self.model_config.act_vocab_size = dataset.action_space.n
+        else:
+            self.model_config.act_discrete = False
+            self.model_config.act_dim = dataset.action_space.shape[0]
+            self.model_config.act_vocab_size = 1
+            
         self.model = DecisionTransformer(config=self.model_config)
         self.reward_scale_ = kwargs.get("reward_scale", 0.0)
         self.trainer_config = DecisionTransformerTrainerConfig(device=self.device, **kwargs)
