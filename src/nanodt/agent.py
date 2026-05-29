@@ -157,6 +157,10 @@ class NanoDTAgent:
         state_mean = torch.tensor(self.state_mean_, dtype=torch.float32).to(device)
         state_std = torch.tensor(self.state_std_, dtype=torch.float32).to(device)
         scale = self.reward_scale_
+        # Update state from the last step
+        self._ep_states = torch.cat(
+            [self._ep_states, torch.tensor(obs, dtype=torch.float32).reshape(1, -1).to(device)], dim=0
+        )
 
         # Update RTG using reward from the previous step
         if rew is not None:
@@ -178,24 +182,12 @@ class NanoDTAgent:
 
             self._ep_rewards[-1] = rew
 
-        # Update state from the current step
-        self._ep_states = torch.cat(
-            [
-                self._ep_states,
-                torch.tensor(obs, dtype=torch.float32).reshape(1, -1).to(device),
-            ],
-            dim=0,
-        )
-
-        # Padding / placeholder for the action that will be predicted now
+        # Padding for the next one
         self._ep_actions = torch.cat(
-            [self._ep_actions, torch.zeros((1, act_dim), device=device)],
-            dim=0,
+            [self._ep_actions, torch.zeros((1, act_dim), device=device)], dim=0
         )
 
-        self._ep_rewards = torch.cat(
-            [self._ep_rewards, torch.zeros(1, device=device)]
-        )
+        self._ep_rewards = torch.cat([self._ep_rewards, torch.zeros(1, device=device)])
 
         # prepare the input
         states = self._ep_states.reshape(1, -1, state_dim)[:, -max_len:]
@@ -203,6 +195,7 @@ class NanoDTAgent:
         rtgs = self._ep_rtgs.reshape(1, -1, 1)[:, -max_len:]
         tsteps = self._ep_tsteps.reshape(1, -1)[:, -max_len:]
 
+        # pad all tokens to sequence length
         # Calculate masks
         masks = (
             torch.cat(
