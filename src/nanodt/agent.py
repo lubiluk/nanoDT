@@ -211,7 +211,7 @@ class NanoDTAgent:
             states, max_len, pad_value=0, device=device, dtype=torch.float32
         )
         actions = pad_tensor(
-            actions, max_len, pad_value=0, device=device, dtype=torch.float32
+            actions, max_len, pad_value=-1, device=device, dtype=torch.float32
         )
         rtgs = pad_tensor(
             rtgs, max_len, pad_value=0, device=device, dtype=torch.float32

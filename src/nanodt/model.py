@@ -267,8 +267,9 @@ class DecisionTransformer(nn.Module):
         if self.config.act_discrete:
             action_ids = actions.type(torch.long).squeeze(-1)
 
-            # clamp action ids to be within the valid range for the embedding layer, 
-            # this will prevent out-of-bounds errors during inference when the model might output invalid action ids
+            # we use -1 as a special padding value for discrete actions
+            # we have to clamp it to 0 because we can't embed this token,
+            # padding tokens are masked out so they can be safely padded to 0 without affecting the loss
             action_ids_for_embedding = action_ids.clamp(min=0)
 
             action_emb = self.transformer.ae(action_ids_for_embedding)
