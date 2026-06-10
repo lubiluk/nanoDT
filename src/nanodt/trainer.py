@@ -42,7 +42,7 @@ class DecisionTransformerDataCollator:
         max_len = self.K
         s, a, r, rtg, timesteps, mask = [], [], [], [], [], []
         state_dim = batch[0].observations.shape[-1]
-        act_dim = batch[0].actions.shape[-1]
+        act_dim = 1 if self.act_discrete else batch[0].actions.shape[-1]
         max_ep_len = self.max_ep_len
         state_mean = self.state_mean
         state_std = self.state_std

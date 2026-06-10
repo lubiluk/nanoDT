@@ -262,11 +262,20 @@ class DecisionTransformer(nn.Module):
         state_emb = self.transformer.se(
             states
         )  # state embeddings of shape (b, t, n_embd)
-        action_emb = self.transformer.ae(
-            actions.type(torch.long).squeeze(-1)
-            if self.config.act_discrete
-            else actions
-        )  # action embeddings of shape (b, t, n_embd)
+
+        # action embeddings of shape (b, t, n_embd)
+        if self.config.act_discrete:
+            action_ids = actions.type(torch.long).squeeze(-1)
+
+            # we use -1 as a special padding value for discrete actions
+            # we have to clamp it to 0 because we can't embed this token,
+            # padding tokens are masked out so they can be safely padded to 0 without affecting the loss
+            action_ids_for_embedding = action_ids.clamp(min=0)
+
+            action_emb = self.transformer.ae(action_ids_for_embedding)
+        else:
+            action_emb = self.transformer.ae(actions)
+
         rtg_emb = self.transformer.re(
             rtgs
         )  # return-to-go embeddings of shape (b, t, n_embd)

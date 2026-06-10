@@ -44,10 +44,16 @@ class NanoDTAgent:
     def learn(self, dataset: MinariDataset, **kwargs):
         # Automatically infer the state_dim and act_dim from the arguments
         self.model_config.state_dim = dataset.observation_space.shape[0]
-        self.model_config.act_dim = dataset.action_space.shape[0]
-        self.model_config.act_discrete = isinstance(
-            dataset.action_space, spaces.Discrete
-        )
+
+        if isinstance(dataset.action_space, spaces.Discrete):
+            self.model_config.act_discrete = True
+            self.model_config.act_dim = 1
+            self.model_config.act_vocab_size = dataset.action_space.n
+        else:
+            self.model_config.act_discrete = False
+            self.model_config.act_dim = dataset.action_space.shape[0]
+            self.model_config.act_vocab_size = 1
+            
         self.model = DecisionTransformer(config=self.model_config)
         self.reward_scale_ = kwargs.get("reward_scale", 0.0)
         self.trainer_config = DecisionTransformerTrainerConfig(device=self.device, **kwargs)
@@ -150,29 +156,37 @@ class NanoDTAgent:
         max_len = self.model_config.K
         state_mean = torch.tensor(self.state_mean_, dtype=torch.float32).to(device)
         state_std = torch.tensor(self.state_std_, dtype=torch.float32).to(device)
-        target_return = self._target_return
         scale = self.reward_scale_
         # Update state from the last step
         self._ep_states = torch.cat(
             [self._ep_states, torch.tensor(obs, dtype=torch.float32).reshape(1, -1).to(device)], dim=0
         )
-        # Update reward if it's not the first step
+
+        # Update RTG using reward from the previous step
         if rew is not None:
+            rew = float(rew)
+
+            self._target_return = self._target_return - rew / scale
+
             self._ep_rtgs = torch.cat(
                 [
                     self._ep_rtgs,
                     torch.tensor(
-                        target_return - rew / scale, device=device, dtype=torch.float32
+                        self._target_return,
+                        device=device,
+                        dtype=torch.float32,
                     ).reshape(1, 1),
                 ],
                 dim=1,
             )
-            self._ep_rewards[-1] = rew.item()
+
+            self._ep_rewards[-1] = rew
 
         # Padding for the next one
         self._ep_actions = torch.cat(
             [self._ep_actions, torch.zeros((1, act_dim), device=device)], dim=0
         )
+
         self._ep_rewards = torch.cat([self._ep_rewards, torch.zeros(1, device=device)])
 
         # prepare the input
@@ -197,7 +211,7 @@ class NanoDTAgent:
             states, max_len, pad_value=0, device=device, dtype=torch.float32
         )
         actions = pad_tensor(
-            actions, max_len, pad_value=-1, device=device, dtype=torch.long
+            actions, max_len, pad_value=-1, device=device, dtype=torch.float32
         )
         rtgs = pad_tensor(
             rtgs, max_len, pad_value=0, device=device, dtype=torch.float32
@@ -209,7 +223,7 @@ class NanoDTAgent:
         # get the action
         with torch.no_grad():
             logits, _ = self.model(
-                (states.to(dtype=torch.float32) - state_mean) / state_std,
+                (states.to(dtype=torch.float32) - state_mean) / (state_std + 1e-6),
                 actions.to(dtype=torch.float32),
                 rtgs.to(dtype=torch.float32),
                 tsteps.to(dtype=torch.long),
@@ -217,19 +231,34 @@ class NanoDTAgent:
             )
 
         if self.model_config.act_discrete:
-            action = torch.argmax(logits[0, -1, :])
+            action = int(torch.argmax(logits[0, -1, :]).item())
+
+            # Store discrete action as scalar action id.
+            # This supports act_dim=1, but also does not break if someone uses act_dim > 1.
+            action_tensor = torch.zeros((act_dim,), device=device, dtype=torch.float32)
+            action_tensor[0] = float(action)
+            self._ep_actions[-1] = action_tensor
+
+            action_to_return = action
         else:
             action = logits[0, -1, :]
+
+            # Store continuous action vector.
+            self._ep_actions[-1] = action.reshape(-1).to(device)
+
+            action_to_return = action.cpu().numpy()
+
+        self._t += 1
 
         self._ep_tsteps = torch.cat(
             [
                 self._ep_tsteps,
-                torch.ones((1, 1), device=device, dtype=torch.long) * (self._t + 1),
+                torch.ones((1, 1), device=device, dtype=torch.long) * self._t,
             ],
             dim=1,
         )
 
-        return action.cpu().numpy()
+        return action_to_return
 
 
 def pad_tensor(tensor, pad_length, pad_value=0, pad_dim=1, device=None, dtype=None):
